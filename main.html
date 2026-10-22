@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genset 3D - First Person Walkthrough</title>
+    <!-- A-Frame Library -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <!-- A-Frame Extras untuk memutar animasi (.glb) -->
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #e0e0e0; }
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #222;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 999;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Overlay (Petunjuk) -->
+    <div id="ui-container">
+        <h3 style="margin: 0 0 10px 0; color: #111;">PORTFOLIO GENSET 3D</h3>
+        <p style="margin: 5px 0;"><strong>Klik kiri</strong> layar untuk masuk ke mode Walkthrough.</p>
+        <p style="margin: 5px 0;"><strong>Mouse</strong> = Menoleh keliling (Look)</p>
+        <p style="margin: 5px 0;"><strong>W, A, S, D</strong> = Berjalan (Move)</p>
+        <p style="margin: 5px 0;"><strong>ESC</strong> = Keluar dari mode (Unlock kursor)</p>
+    </div>
+
+    <!-- Scene A-Frame dengan background light grey (#e0e0e0) -->
+    <a-scene background="color: #e0e0e0">
+        
+        <!-- Asset Management (Memuat model genset.glb dari folder yang sama) -->
+        <a-assets>
+            <a-asset-item id="modelGenset" src="genset.glb"></a-asset-item>
+        </a-assets>
+
+        <!-- Pencahayaan (Lighting) disesuaikan agar terang dan profesional -->
+        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="1.4" position="2 4 2"></a-light>
+        <a-light type="directional" color="#d0d0ff" intensity="0.5" position="-2 2 -2"></a-light>
+
+        <!-- 
+            MODEL GENSET UTAMA 
+            Atribut 'animation-mixer' akan memutar animasi rakitan secara otomatis dan berulang
+        -->
+        <a-entity 
+            gltf-model="#modelGenset" 
+            position="0 0.5 -3" 
+            scale="1 1 1" 
+            animation-mixer>
+        </a-entity>
+
+        <!-- Kamera First Person dengan kontrol WASD dan Look -->
+        <a-entity movement-controls="speed: 0.15" position="0 1.6 2">
+            <a-entity camera look-controls></a-entity>
+        </a-entity>
+
+    </a-scene>
+
+</body>
+</html>
