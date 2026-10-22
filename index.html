@@ -9,7 +9,8 @@
     <!-- A-Frame Extras untuk memutar animasi (.glb) -->
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #e0e0e0; }
+        * { box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background-color: #e0e0e0; }
         #ui-container {
             position: absolute;
             top: 20px;
@@ -24,17 +25,197 @@
             z-index: 999;
             pointer-events: none;
         }
+
+        #mobile-controls {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            pointer-events: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #move-joystick {
+            position: absolute;
+            left: max(22px, env(safe-area-inset-left));
+            bottom: max(22px, env(safe-area-inset-bottom));
+            width: 148px;
+            height: 148px;
+            border: 1px solid rgba(255, 255, 255, 0.56);
+            border-radius: 50%;
+            background: rgba(18, 25, 34, 0.38);
+            box-shadow: 0 6px 22px rgba(0, 0, 0, 0.2);
+            touch-action: none;
+            pointer-events: auto;
+        }
+
+        #move-joystick::before {
+            content: 'GERAK';
+            position: absolute;
+            left: 50%;
+            bottom: 10px;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            pointer-events: none;
+        }
+
+        #joystick-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 58px;
+            height: 58px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.78);
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        #look-hint {
+            position: absolute;
+            right: max(18px, env(safe-area-inset-right));
+            bottom: max(28px, env(safe-area-inset-bottom));
+            max-width: 135px;
+            padding: 9px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            background: rgba(18, 25, 34, 0.38);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 11px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        @media (pointer: coarse), (max-width: 768px) {
+            #mobile-controls { display: block; }
+            #ui-container { display: none; }
+        }
+
+        @media (max-width: 380px) {
+            #move-joystick { width: 128px; height: 128px; }
+            #joystick-knob { width: 52px; height: 52px; }
+            #look-hint { max-width: 110px; font-size: 10px; }
+        }
     </style>
+    <script>
+        AFRAME.registerComponent('mobile-move-joystick', {
+            schema: { speed: { type: 'number', default: 2.4 } },
+
+            init: function () {
+                this.base = document.querySelector('#move-joystick');
+                this.knob = document.querySelector('#joystick-knob');
+                this.camera = this.el.querySelector('[camera]');
+                this.input = { x: 0, y: 0 };
+                this.pointerId = null;
+                this.forward = new THREE.Vector3();
+                this.right = new THREE.Vector3();
+                this.delta = new THREE.Vector3();
+                this.cameraRotation = new THREE.Quaternion();
+
+                this.onPointerDown = this.onPointerDown.bind(this);
+                this.onPointerMove = this.onPointerMove.bind(this);
+                this.onPointerUp = this.onPointerUp.bind(this);
+
+                this.base.addEventListener('pointerdown', this.onPointerDown);
+                this.base.addEventListener('pointermove', this.onPointerMove);
+                this.base.addEventListener('pointerup', this.onPointerUp);
+                this.base.addEventListener('pointercancel', this.onPointerUp);
+                this.base.addEventListener('lostpointercapture', this.onPointerUp);
+            },
+
+            onPointerDown: function (event) {
+                if (this.pointerId !== null) return;
+                event.preventDefault();
+                this.pointerId = event.pointerId;
+                this.base.setPointerCapture(event.pointerId);
+                this.updateInput(event);
+            },
+
+            onPointerMove: function (event) {
+                if (event.pointerId !== this.pointerId) return;
+                event.preventDefault();
+                this.updateInput(event);
+            },
+
+            updateInput: function (event) {
+                var rect = this.base.getBoundingClientRect();
+                var maxRadius = (Math.min(rect.width, rect.height) - this.knob.offsetWidth) / 2;
+                var dx = event.clientX - (rect.left + rect.width / 2);
+                var dy = event.clientY - (rect.top + rect.height / 2);
+                var distance = Math.sqrt(dx * dx + dy * dy);
+                var scale = distance > maxRadius ? maxRadius / distance : 1;
+                var knobX = dx * scale;
+                var knobY = dy * scale;
+
+                this.input.x = knobX / maxRadius;
+                this.input.y = knobY / maxRadius;
+                this.knob.style.transform = 'translate(calc(-50% + ' + knobX + 'px), calc(-50% + ' + knobY + 'px))';
+            },
+
+            onPointerUp: function (event) {
+                if (this.pointerId === null || (event && event.pointerId !== this.pointerId)) return;
+                if (this.base.hasPointerCapture(this.pointerId)) {
+                    this.base.releasePointerCapture(this.pointerId);
+                }
+                this.pointerId = null;
+                this.input.x = 0;
+                this.input.y = 0;
+                this.knob.style.transform = 'translate(-50%, -50%)';
+            },
+
+            tick: function (time, deltaTime) {
+                if (!this.camera || !deltaTime || (!this.input.x && !this.input.y)) return;
+
+                this.camera.object3D.getWorldQuaternion(this.cameraRotation);
+                this.forward.set(0, 0, -1).applyQuaternion(this.cameraRotation);
+                this.forward.y = 0;
+                this.forward.normalize();
+                this.right.set(-this.forward.z, 0, this.forward.x);
+
+                this.delta.copy(this.forward).multiplyScalar(-this.input.y)
+                    .addScaledVector(this.right, this.input.x);
+                if (this.delta.lengthSq() > 1) this.delta.normalize();
+
+                this.el.object3D.position.addScaledVector(
+                    this.delta,
+                    this.data.speed * Math.min(deltaTime, 50) / 1000
+                );
+            },
+
+            remove: function () {
+                this.base.removeEventListener('pointerdown', this.onPointerDown);
+                this.base.removeEventListener('pointermove', this.onPointerMove);
+                this.base.removeEventListener('pointerup', this.onPointerUp);
+                this.base.removeEventListener('pointercancel', this.onPointerUp);
+                this.base.removeEventListener('lostpointercapture', this.onPointerUp);
+            }
+        });
+    </script>
 </head>
 <body>
 
     <!-- UI Overlay (Petunjuk) -->
     <div id="ui-container">
         <h3 style="margin: 0 0 10px 0; color: #111;">PORTFOLIO GENSET 3D</h3>
-        <p style="margin: 5px 0;"><strong>Klik kiri</strong> layar untuk masuk ke mode Walkthrough.</p>
-        <p style="margin: 5px 0;"><strong>Mouse</strong> = Menoleh keliling (Look)</p>
-        <p style="margin: 5px 0;"><strong>W, A, S, D</strong> = Berjalan (Move)</p>
-        <p style="margin: 5px 0;"><strong>ESC</strong> = Keluar dari mode (Unlock kursor)</p>
+        <p style="margin: 5px 0;"><strong>Desktop:</strong> klik dan gerakkan mouse untuk melihat.</p>
+        <p style="margin: 5px 0;"><strong>W, A, S, D</strong> atau tombol panah untuk bergerak.</p>
+        <p style="margin: 5px 0;"><strong>Mobile:</strong> joystick untuk bergerak, geser layar untuk melihat.</p>
+        <p style="margin: 5px 0;"><strong>ESC</strong> untuk membuka kunci kursor.</p>
+    </div>
+
+    <div id="mobile-controls" aria-label="Kontrol mobile">
+        <div id="move-joystick" role="application" aria-label="Joystick untuk bergerak">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="look-hint">Geser layar untuk melihat</div>
     </div>
 
     <!-- Scene A-Frame dengan background light grey (#e0e0e0) -->
@@ -62,8 +243,11 @@
         </a-entity>
 
         <!-- Kamera First Person dengan kontrol WASD dan Look -->
-        <a-entity movement-controls="speed: 0.15" position="0 1.6 2">
-            <a-entity camera look-controls></a-entity>
+        <a-entity id="player-rig"
+                  movement-controls="controls: gamepad, keyboard; speed: 0.15"
+                  mobile-move-joystick="speed: 2.4"
+                  position="0 0 2">
+            <a-entity camera position="0 1.6 0" look-controls></a-entity>
         </a-entity>
 
     </a-scene>
